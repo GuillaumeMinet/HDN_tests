@@ -187,7 +187,7 @@ class LadderVAE(nn.Module):
         """Global step."""
         return self._global_step
 
-    def forward(self, x):
+    def forward(self, x, y=None):
         img_size = x.size()[2:]
 
         # Pad input to make everything easier with conv strides
@@ -203,7 +203,11 @@ class LadderVAE(nn.Module):
         out = crop_img_tensor(out, img_size)
         
         # Log likelihood and other info (per data point)
-        ll, likelihood_info = self.likelihood(out, x)
+        # if y is None:
+        #     ll, likelihood_info = self.likelihood(out, x)
+        # else:
+        
+        ll, likelihood_info = self.likelihood(out,x)
 
         if self.mode_pred is False:
             # kl[i] for each i has length batch_size

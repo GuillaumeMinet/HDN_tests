@@ -26,7 +26,7 @@ import lib.utils as utils
 def train_network(model, lr, max_epochs,steps_per_epoch,train_loader, val_loader, test_loader, 
                   virtual_batch, gaussian_noise_std, model_name, 
                   test_log_every=1000, directory_path="./",
-                  val_loss_patience=100, nrows=4, max_grad_norm=None):
+                  val_loss_patience=100, nrows=4, max_grad_norm=None,beta=1):
     
     """Train Hierarchical DivNoising network. 
     Parameters
@@ -98,32 +98,37 @@ def train_network(model, lr, max_epochs,steps_per_epoch,train_loader, val_loader
             step_counter=batch_idx
             x = x.unsqueeze(1) # Remove for RGB
             x = x.to(device=device, dtype=torch.float)
+            y = y.unsqueeze(1) # Remove for RGB
+            y = y.to(device=device, dtype=torch.float)
             step = model.global_step
             
-            if(test_log_every > 0):
-                if step % test_log_every == 0:
+            # if(test_log_every > 0):
+            #     if step % test_log_every == 0:
                 
-                    print("Testing the model at " "step {}". format(step))
+            #         print("Testing the model at " "step {}". format(step))
 
-                    with torch.no_grad():
-                        boilerplate._test(epoch, img_folder, device, model,
-                                          test_loader, gaussian_noise_std,
-                                          model.data_std, nrows)
-                        model.train()
+            #         with torch.no_grad():
+            #             boilerplate._test(epoch, img_folder, device, model,
+            #                               test_loader, gaussian_noise_std,
+            #                               model.data_std, nrows)
+            #             model.train()
              
             optimizer.zero_grad()
         
         
             ### Make smaller batches
-            virtual_batches = torch.split(x,virtual_batch,0)
-            for batch in virtual_batches:
+            virtual_batches_x = torch.split(x,virtual_batch,0)
+            virtual_batches_y = torch.split(y,virtual_batch,0)
             
-                outputs = boilerplate.forward_pass(batch, batch, device, model, 
+            for i in range(len(virtual_batches_x)):
+                batch_x = virtual_batches_x [i]
+                batch_y = virtual_batches_y [i]
+                outputs = boilerplate.forward_pass(batch_x, batch_y, device, model, 
                                                                 gaussian_noise_std)
 
                 recons_loss = outputs['recons_loss']
                 kl_loss = outputs['kl_loss']
-                loss = recons_loss + kl_loss
+                loss = recons_loss + beta*kl_loss
                 loss.backward()
 
                 if max_grad_norm is not None:
@@ -169,6 +174,8 @@ def train_network(model, lr, max_epochs,steps_per_epoch,train_loader, val_loader
                     for i, (x, y) in enumerate(val_loader):
                         x = x.unsqueeze(1) # Remove for RGB
                         x = x.to(device=device, dtype=torch.float)
+                        y = y.unsqueeze(1) # Remove for RGB
+                        y = y.to(device=device, dtype=torch.float)
                         val_outputs = boilerplate.forward_pass(x, y, device, model, gaussian_noise_std)
 
                         val_recons_loss = val_outputs['recons_loss']
@@ -196,7 +203,7 @@ def train_network(model, lr, max_epochs,steps_per_epoch,train_loader, val_loader
                       "Min validation loss:", np.min(loss_val_history))
 
                 seconds=time.time()
-                secondsElapsed=np.float(seconds-seconds_last)
+                secondsElapsed=float(seconds-seconds_last)
                 seconds_last=seconds
                 remainingEps=(max_epochs+1)-(epoch+1)
                 estRemainSeconds=(secondsElapsed)*(remainingEps)

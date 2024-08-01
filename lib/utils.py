@@ -125,6 +125,31 @@ def augment_data(X_train):
     print('Raw image size after augmentation', X_train_aug.shape)
     return X_train_aug
 
+
+def extract_patches_supervised(x,y,patch_size,num_patches):
+    """Deterministically extract patches from paired array (x,y) of images. 
+    Parameters
+    ----------
+    x: numpy array
+        Array of images.
+    patch_size: int
+        Size of patches to be extracted from each image.
+    num_patches: int
+        Number of patches to be extracted from each image.    
+    """
+    patches_x = np.zeros(shape=(x.shape[0]*num_patches,patch_size,patch_size))
+    patches_y = np.zeros(shape=(y.shape[0]*num_patches,patch_size,patch_size))
+    
+    for i in tqdm(range(x.shape[0])):
+        patches_x[i*num_patches:(i+1)*num_patches] = image.extract_patches_2d(x[i],(patch_size,patch_size), 
+                                                                            max_patches =num_patches,
+                                                                           random_state=i)
+        patches_y[i*num_patches:(i+1)*num_patches] = image.extract_patches_2d(y[i],(patch_size,patch_size), 
+                                                                            max_patches =num_patches,
+                                                                           random_state=i)
+            
+    return patches_x,patches_y
+
 def extract_patches(x,patch_size,num_patches):
     """Deterministically extract patches from array of images. 
     Parameters
@@ -139,7 +164,8 @@ def extract_patches(x,patch_size,num_patches):
     patches = np.zeros(shape=(x.shape[0]*num_patches,patch_size,patch_size))
     
     for i in tqdm(range(x.shape[0])):
-        patches[i*num_patches:(i+1)*num_patches] = image.extract_patches_2d(x[i],(patch_size,patch_size), num_patches,
+        patches[i*num_patches:(i+1)*num_patches] = image.extract_patches_2d(x[i],(patch_size,patch_size), 
+                                                                            max_patches =num_patches,
                                                                            random_state=i)    
     return patches
 

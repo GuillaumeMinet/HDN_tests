@@ -19,6 +19,68 @@ from tqdm import tqdm
 from models.lvae import LadderVAE
 import lib.utils as utils
 
+def _make_datamanager_supervised(train_images, train_images_gt, val_images, val_images_gt,
+                      test_images, test_images_gt, batch_size, test_batch_size):
+    
+    """Create data loaders for training, validation and test sets during training.
+    The test set will simply be used for plotting and comparing generated images 
+    from the learned denoised posterior during training phase. 
+    No evaluation will be done on the test set during training. 
+    Args:
+        train_images (np array): A 3d array
+        val_images (np array): A 3d array
+        test_images (np array): A 3d array
+        batch_size (int): The batch size for training and validation steps
+        test_batch_size (int): The batch size for test steps
+    Returns:
+        train_loader: Training data loader
+        val_loader: Validation data loader
+        test_loader: Test data loader
+        data_mean: mean of train data and validation data combined
+        data_std: std of train data and validation data combined
+    """
+    
+    # np.random.shuffle(train_images)
+    train_images = train_images
+    # np.random.shuffle(val_images)
+    val_images = val_images
+    
+    combined_data = np.concatenate((train_images, val_images), axis=0)
+    combined_data_gt = np.concatenate((train_images_gt, val_images_gt), axis=0)
+    data_mean = np.mean(combined_data)
+    data_std = np.std(combined_data)
+    data_mean_gt = np.mean(combined_data_gt)
+    data_std_gt = np.std(combined_data_gt)
+    train_images = (train_images-data_mean)/data_std
+    train_images = torch.from_numpy(train_images)
+    train_images_gt = (train_images_gt-data_mean_gt)/data_std_gt
+    train_images_gt = torch.from_numpy(train_images_gt)
+    #train_labels = torch.zeros(len(train_images),).fill_(float('nan'))
+
+    train_set = TensorDataset(train_images, train_images_gt)
+    
+    val_images = (val_images-data_mean)/data_std
+    val_images_gt = (val_images_gt-data_mean_gt)/data_std_gt
+    val_images = torch.from_numpy(val_images)
+    val_images_gt = torch.from_numpy(val_images_gt)
+    # val_labels = torch.zeros(len(val_images),).fill_(float('nan'))
+    val_set = TensorDataset(val_images, val_images_gt)
+    
+    np.random.shuffle(test_images)
+    test_images = torch.from_numpy(test_images)
+    test_images_gt = torch.from_numpy(test_images_gt)
+    test_images = (test_images-data_mean)/data_std
+    test_images_gt = (test_images-data_mean_gt)/data_std_gt
+    # test_labels = torch.zeros(len(test_images),).fill_(float('nan'))
+    test_set = TensorDataset(test_images, test_images_gt)
+    
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_set, batch_size=test_batch_size, shuffle=True)
+    
+    return train_loader, val_loader, test_loader, data_mean, data_std
+
+
 def _make_datamanager(train_images, val_images, test_images, batch_size, test_batch_size):
     
     """Create data loaders for training, validation and test sets during training.
@@ -90,7 +152,11 @@ def _make_optimizer_and_scheduler(model, lr, weight_decay) -> Optimizer:
         
 def forward_pass(x, y, device, model, gaussian_noise_std)-> dict:
     x = x.to(device, non_blocking=True)
-    model_out = model(x)
+    if y is not None:
+        y = y.to(device, non_blocking=True)
+        model_out = model(x,y)
+    else:
+        model_out = model(x)
     if model.mode_pred is False:
         
         recons_sep = -model_out['ll']
