@@ -286,17 +286,23 @@ class GaussianMixtureNoiseModel:
             p = self.likelihood(observations, signals)
             loss=torch.mean(-torch.log(p))
             jointLoss=jointLoss+loss
+
+            if t==0:
+                bestLoss=jointLoss.item()
+                print(f"Starting with loss = {bestLoss}")
             
-            if t%100==0:
-                print(t, jointLoss.item())
+            # if t%100==0:
+            #     print(t, jointLoss.item())
                 
 
-            if (t%(int(n_epochs*0.5))==0):
+            if jointLoss.item() < bestLoss:
+                bestLoss = jointLoss.item()
                 trained_weight = self.weight.cpu().detach().numpy()
                 min_signal = self.min_signal.cpu().detach().numpy()
                 max_signal = self.max_signal.cpu().detach().numpy()
                 np.savez(self.path+name, trained_weight=trained_weight, min_signal = min_signal, max_signal = max_signal, min_sigma = self.min_sigma)
-
+                
+                print(f"Epoch {t}: saved with loss {bestLoss}")
                 
             
 
