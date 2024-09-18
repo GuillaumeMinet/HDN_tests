@@ -78,7 +78,7 @@ def _make_datamanager_supervised(train_images, train_images_gt, val_images, val_
     val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_set, batch_size=test_batch_size, shuffle=True)
     
-    return train_loader, val_loader, test_loader, data_mean, data_std
+    return train_loader, val_loader, test_loader, data_mean_gt, data_std_gt
 
 
 def _make_datamanager(train_images, val_images, test_images, batch_size, test_batch_size):

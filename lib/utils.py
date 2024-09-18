@@ -279,6 +279,8 @@ def plotProbabilityDistribution(signalBinIndex, histogram, gaussianMixtureNoiseM
             Number of Bins.
         device: GPU device
         """
+    
+    # print(gaussianMixtureNoiseModel.weight)
     histBinSize=(max_signal-min_signal)/n_bin
     querySignal_numpy= (signalBinIndex/float(n_bin)*(max_signal-min_signal)+min_signal)
     querySignal_numpy +=histBinSize/2
@@ -289,6 +291,7 @@ def plotProbabilityDistribution(signalBinIndex, histogram, gaussianMixtureNoiseM
     queryObservations = torch.from_numpy(queryObservations_numpy).float().to(device)
     pTorch=gaussianMixtureNoiseModel.likelihood(queryObservations, querySignal_torch)
     pNumpy=pTorch.cpu().detach().numpy()
+
     
     plt.figure(figsize=(12, 5))
     
@@ -301,6 +304,7 @@ def plotProbabilityDistribution(signalBinIndex, histogram, gaussianMixtureNoiseM
     plt.subplot(1, 2, 2)
     plt.plot(queryObservations_numpy, histogram[signalBinIndex, :]/histBinSize, label='GT Hist: bin ='+str(signalBinIndex), color='blue', linewidth=2)
     plt.plot(queryObservations_numpy, pNumpy, label='GMM : '+' signal = '+str(np.round(querySignal_numpy,2)), color='red',linewidth=2)
+    plt.axvline(x=querySignal_numpy, linewidth=2, color='red', alpha=0.5)
     plt.xlabel('Observations (x) for signal s = ' + str(querySignal_numpy))
     plt.ylabel('Probability Density')
     plt.title("Probability Distribution P(x|s) at signal =" + str(querySignal_numpy))

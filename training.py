@@ -98,8 +98,11 @@ def train_network(model, lr, max_epochs,steps_per_epoch,train_loader, val_loader
             step_counter=batch_idx
             x = x.unsqueeze(1) # Remove for RGB
             x = x.to(device=device, dtype=torch.float)
-            y = y.unsqueeze(1) # Remove for RGB
-            y = y.to(device=device, dtype=torch.float)
+            if torch.isnan(y).all().item():
+                y = None
+            else:
+                y = y.unsqueeze(1) # Remove for RGB
+                y = y.to(device=device, dtype=torch.float)
             step = model.global_step
             
             # if(test_log_every > 0):
@@ -118,11 +121,15 @@ def train_network(model, lr, max_epochs,steps_per_epoch,train_loader, val_loader
         
             ### Make smaller batches
             virtual_batches_x = torch.split(x,virtual_batch,0)
-            virtual_batches_y = torch.split(y,virtual_batch,0)
+            if y is not None:
+                virtual_batches_y = torch.split(y,virtual_batch,0)
             
             for i in range(len(virtual_batches_x)):
                 batch_x = virtual_batches_x [i]
-                batch_y = virtual_batches_y [i]
+                if y is None:
+                    batch_y = None
+                else:
+                    batch_y = virtual_batches_y [i]
                 outputs = boilerplate.forward_pass(batch_x, batch_y, device, model, 
                                                                 gaussian_noise_std)
 
@@ -174,8 +181,11 @@ def train_network(model, lr, max_epochs,steps_per_epoch,train_loader, val_loader
                     for i, (x, y) in enumerate(val_loader):
                         x = x.unsqueeze(1) # Remove for RGB
                         x = x.to(device=device, dtype=torch.float)
-                        y = y.unsqueeze(1) # Remove for RGB
-                        y = y.to(device=device, dtype=torch.float)
+                        if torch.isnan(y).all().item():
+                            y = None
+                        else:
+                            y = y.unsqueeze(1) # Remove for RGB
+                            y = y.to(device=device, dtype=torch.float)
                         val_outputs = boilerplate.forward_pass(x, y, device, model, gaussian_noise_std)
 
                         val_recons_loss = val_outputs['recons_loss']

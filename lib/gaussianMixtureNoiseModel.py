@@ -106,6 +106,7 @@ class GaussianMixtureNoiseModel:
                     Corresponds to either of mean, standard deviation or weight, evaluated at `signals`
         """
         value=0
+
         for i in range(weightParams.shape[0]):
             value += weightParams[i] * (((signals - self.min_signal) / (self.max_signal - self.min_signal)) ** i);
         return value
@@ -194,9 +195,12 @@ class GaussianMixtureNoiseModel:
             sum_means = alpha[ker]*mu[ker]+sum_means
 
         mu_shifted=[]
+        
+        # mu_before = mu.copy()
         for ker in range(kernels):
             mu[ker] = mu[ker] - sum_means + signals
-        
+        # print("sig: ", signals, "Before: ", mu_before,"After: ", mu)
+
         for i in range(kernels):
             noiseModel.append(mu[i])
         for j in range(kernels):
@@ -204,6 +208,7 @@ class GaussianMixtureNoiseModel:
         for k in range(kernels):
             noiseModel.append(alpha[k])
 
+        # print("sig: ", signals, "mu: ", mu)
         return noiseModel
     
     def getSignalObservationPairs(self, signal, observation, lowerClip, upperClip):
@@ -227,6 +232,7 @@ class GaussianMixtureNoiseModel:
 
         """
         lb = np.percentile(signal, lowerClip)
+        # print(lb)
         ub = np.percentile(signal, upperClip)
         stepsize=observation[0].size
         n_observations=observation.shape[0]
@@ -237,7 +243,11 @@ class GaussianMixtureNoiseModel:
             j = i//(n_observations//n_signals)
             sig_obs_pairs[stepsize*i:stepsize*(i+1), 0] = signal[j].ravel()
             sig_obs_pairs[stepsize*i:stepsize*(i+1), 1] = observation[i].ravel()
+        # print("Obs/signal pairs data shape BEFORE percentile selection: ", sig_obs_pairs.shape)
+        # print("Min values:" ,np.min(sig_obs_pairs,axis=0),"Max values:" ,np.max(sig_obs_pairs,axis=0))
         sig_obs_pairs = sig_obs_pairs[ (sig_obs_pairs[:,0]>lb) & (sig_obs_pairs[:,0]<ub)]
+        # print("Obs/signal pairs data shape AFTER percentile selection: ", sig_obs_pairs.shape)
+        # print("Min values:" ,np.min(sig_obs_pairs,axis=0),"Max values:" ,np.max(sig_obs_pairs,axis=0))
         return fastShuffle(sig_obs_pairs, 2)
         
   
@@ -283,6 +293,9 @@ class GaussianMixtureNoiseModel:
             signals = batch_vectors[:,0].astype(np.float32)
             observations = torch.from_numpy(observations.astype(np.float32)).float().to(self.device)
             signals = torch.from_numpy(signals).float().to(self.device)
+            # if t == 0:
+            #     print(torch.min(signals),torch.max(signals))
+            #     print(torch.min(observations),torch.max(observations))
             p = self.likelihood(observations, signals)
             loss=torch.mean(-torch.log(p))
             jointLoss=jointLoss+loss
@@ -291,8 +304,8 @@ class GaussianMixtureNoiseModel:
                 bestLoss=jointLoss.item()
                 print(f"Starting with loss = {bestLoss}")
             
-            # if t%100==0:
-            #     print(t, jointLoss.item())
+            if t%100==0:
+                print(t, jointLoss.item())
                 
 
             if jointLoss.item() < bestLoss:
@@ -303,6 +316,7 @@ class GaussianMixtureNoiseModel:
                 np.savez(self.path+name, trained_weight=trained_weight, min_signal = min_signal, max_signal = max_signal, min_sigma = self.min_sigma)
                 
                 print(f"Epoch {t}: saved with loss {bestLoss}")
+
                 
             
 
@@ -311,6 +325,8 @@ class GaussianMixtureNoiseModel:
             optimizer.step()
             counter+=1
 
+        np.savez(self.path+(name+"_last"), trained_weight=trained_weight, min_signal = min_signal, max_signal = max_signal, min_sigma = self.min_sigma)
+        
         print("===================\n")    
-        print("The trained parameters (" + name + ") is saved at location: "+ self.path)
-
+        print("The best trained parameters (" + name + ") is saved at location: "+ self.path)
+        print("The last trained parameters (" + name + ") is saved at location: "+ self.path)
