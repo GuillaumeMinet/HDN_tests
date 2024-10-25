@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.distributions import kl_divergence
 from torch.distributions.normal import Normal
-
+from .stable_dist_params import StableLogVar, StableMean
 
 class NormalStochasticBlock2d(nn.Module):
     """
@@ -45,14 +45,19 @@ class NormalStochasticBlock2d(nn.Module):
 
         # Define p(z)
         p_mu, p_lv = p_params.chunk(2, dim=1)
-        p = Normal(p_mu, (p_lv / 2).exp())
+        # p = Normal(p_mu, (p_lv / 2).exp())
+        p_mu = StableMean(p_mu)
+        p_lv = StableLogVar(p_lv)
+        p = Normal(p_mu.get(), p_lv.get_std())
 
         if q_params is not None:
             # Define q(z)
             q_params = self.conv_in_q(q_params)
             q_mu, q_lv = q_params.chunk(2, dim=1)
-            q = Normal(q_mu, (q_lv / 2).exp())
-
+            q_mu = StableMean(q_mu)
+            q_lv = StableLogVar(q_lv)
+            # q = Normal(q_mu, (q_lv / 2).exp())
+            q = Normal(q_mu.get(), q_lv.get_std())
             # Sample from q(z)
             sampling_distrib = q
         else:

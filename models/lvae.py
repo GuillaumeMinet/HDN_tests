@@ -34,7 +34,9 @@ class LadderVAE(nn.Module):
                  no_initial_downscaling=True,
                  analytical_kl=True,
                  mode_pred=False,
-                 use_uncond_mode_at=[]):
+                 use_uncond_mode_at=[],
+                 initial_upsamp = False,
+                 final_upsamp = False):
         super().__init__()
         self.color_ch = color_ch
         self.z_dims = z_dims
@@ -80,6 +82,18 @@ class LadderVAE(nn.Module):
             'elu': nn.ELU,
             'selu': nn.SELU,
         }[nonlin]
+
+        # Optional upsampling step
+        if initial_upsamp:
+            self.upsamp = nn.Sequential(
+                nn.ConvTranspose2d(in_channels=1,out_channels=1,kernel_size=2,padding=0,stride=2),
+                nonlin(),
+                nn.ConvTranspose2d(in_channels=1,out_channels=1,kernel_size=3,padding=1),
+                nonlin(),
+                nn.ConvTranspose2d(in_channels=1,out_channels=1,kernel_size=3,padding=1),
+                nonlin())
+        else:
+            self.upsamp = None
 
         # First bottom-up layer: change num channels + downsample by factor 2
         # unless we want to prevent this
@@ -150,6 +164,28 @@ class LadderVAE(nn.Module):
                     gated=gated,
                     analytical_kl=analytical_kl,
                 ))
+        
+        # optional additional upsampling topdown layer
+        if final_upsamp:
+            self.upsamp_topdown = TopDownLayer(
+                z_dim=z_dims[-1],
+                n_res_blocks=blocks_per_layer,
+                n_filters=n_filters,
+                is_top_layer=False,
+                downsampling_steps=self.downsample[i],
+                nonlin=nonlin,
+                merge_type=merge_type,
+                batchnorm=batchnorm,
+                dropout=dropout,
+                stochastic_skip=False,
+                learn_top_prior=learn_top_prior,
+                top_prior_param_shape=self.get_top_prior_param_shape(),
+                res_block_type=res_block_type,
+                gated=gated,
+                analytical_kl=analytical_kl,
+            )
+        else:
+            self.upsamp_topdown = None
 
         # Final top-down layer
         modules = list()
@@ -188,6 +224,10 @@ class LadderVAE(nn.Module):
         return self._global_step
 
     def forward(self, x, y=None):
+
+        if self.upsamp is not None:
+            x = self.upsamp(x)
+
         img_size = x.size()[2:]
 
         # Pad input to make everything easier with conv strides
@@ -199,14 +239,18 @@ class LadderVAE(nn.Module):
         # Top-down inference/generation
         out, td_data = self.topdown_pass(bu_values)
 
-        # Restore original image size
-        out = crop_img_tensor(out, img_size)
+        if self.upsamp_topdown is not None:
+            out = self.upsamp_topdown(self.pad_input(out))
+            out = crop_img_tensor(out[0], torch.Size([dim * 2 for dim in img_size]))
+        else:
+            # Restore original image size
+            out = crop_img_tensor(out, img_size)
         
         # Log likelihood and other info (per data point)
-        if y is None:
-            ll, likelihood_info = self.likelihood(out, x)
-        else:
+        if self.mode_pred is False and y is not None:
             ll, likelihood_info = self.likelihood(out,y)
+        else:
+            ll, likelihood_info = self.likelihood(out, x)
 
         if self.mode_pred is False:
             # kl[i] for each i has length batch_size

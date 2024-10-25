@@ -194,7 +194,6 @@ def _pad_crop_img(x, size, mode) -> torch.Tensor:
     Returns:
         The padded or cropped tensor
     """
-
     assert x.dim() == 4 and len(size) == 2
     size = tuple(size)
     x_size = x.size()[2:4]
