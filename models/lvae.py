@@ -88,9 +88,9 @@ class LadderVAE(nn.Module):
             self.upsamp = nn.Sequential(
                 nn.ConvTranspose2d(in_channels=1,out_channels=1,kernel_size=2,padding=0,stride=2),
                 nonlin(),
-                nn.ConvTranspose2d(in_channels=1,out_channels=1,kernel_size=3,padding=1),
+                nn.Conv2d(in_channels=1,out_channels=1,kernel_size=3,padding=1),
                 nonlin(),
-                nn.ConvTranspose2d(in_channels=1,out_channels=1,kernel_size=3,padding=1),
+                nn.Conv2d(in_channels=1,out_channels=1,kernel_size=3,padding=1),
                 nonlin())
         else:
             self.upsamp = None
@@ -167,23 +167,33 @@ class LadderVAE(nn.Module):
         
         # optional additional upsampling topdown layer
         if final_upsamp:
-            self.upsamp_topdown = TopDownLayer(
-                z_dim=z_dims[-1],
-                n_res_blocks=blocks_per_layer,
-                n_filters=n_filters,
-                is_top_layer=False,
-                downsampling_steps=self.downsample[i],
-                nonlin=nonlin,
-                merge_type=merge_type,
-                batchnorm=batchnorm,
-                dropout=dropout,
-                stochastic_skip=False,
-                learn_top_prior=learn_top_prior,
-                top_prior_param_shape=self.get_top_prior_param_shape(),
-                res_block_type=res_block_type,
-                gated=gated,
-                analytical_kl=analytical_kl,
-            )
+            self.upsamp_topdown = TopDownDeterministicResBlock(
+                    c_in=n_filters,
+                    c_out=n_filters,
+                    nonlin=nonlin,
+                    batchnorm=batchnorm,
+                    dropout=dropout,
+                    res_block_type=res_block_type,
+                    gated=gated,
+                    upsample=True,
+                )
+            # self.upsamp_topdown = TopDownLayer(
+            #     z_dim=z_dims[-1],
+            #     n_res_blocks=blocks_per_layer,
+            #     n_filters=n_filters,
+            #     is_top_layer=False,
+            #     downsampling_steps=self.downsample[i],
+            #     nonlin=nonlin,
+            #     merge_type=merge_type,
+            #     batchnorm=batchnorm,
+            #     dropout=dropout,
+            #     stochastic_skip=False,
+            #     learn_top_prior=learn_top_prior,
+            #     top_prior_param_shape=self.get_top_prior_param_shape(),
+            #     res_block_type=res_block_type,
+            #     gated=gated,
+            #     analytical_kl=analytical_kl,
+            # )
         else:
             self.upsamp_topdown = None
 
@@ -211,7 +221,7 @@ class LadderVAE(nn.Module):
             self.likelihood = NoiseModelLikelihood(n_filters, color_ch, data_mean, 
                                                    data_std, noiseModel)
         else:
-            msg = "Unrecognized likelihood '{}'".format(likelihood_form)
+            msg = "Unrecognized likelihood '{}'".format(self.likelihood_form)
             raise RuntimeError(msg)
             
     def increment_global_step(self):
