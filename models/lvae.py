@@ -24,7 +24,7 @@ class LadderVAE(nn.Module):
                  merge_type='residual',
                  batchnorm=True,
                  stochastic_skip=True,
-                 n_filters=64,
+                 n_filters=128,
                  dropout=0.2,
                  free_bits=0.0,
                  learn_top_prior=True,
@@ -86,12 +86,14 @@ class LadderVAE(nn.Module):
         # Optional upsampling step
         if initial_upsamp:
             self.upsamp = nn.Sequential(
-                nn.ConvTranspose2d(in_channels=1,out_channels=1,kernel_size=2,padding=0,stride=2),
+                nn.ConvTranspose2d(in_channels=1,out_channels=128,kernel_size=4,padding=1,stride=2),
                 nonlin(),
-                nn.Conv2d(in_channels=1,out_channels=1,kernel_size=3,padding=1),
+                nn.Conv2d(in_channels=128,out_channels=256,kernel_size=3,padding=1),
                 nonlin(),
-                nn.Conv2d(in_channels=1,out_channels=1,kernel_size=3,padding=1),
+                nn.Conv2d(in_channels=256,out_channels=128,kernel_size=3,padding=1),
                 nonlin())
+                # nn.Conv2d(in_channels=64,out_channels=1,kernel_size=3,padding=1),
+                # nonlin())
         else:
             self.upsamp = None
 
@@ -99,8 +101,8 @@ class LadderVAE(nn.Module):
         # unless we want to prevent this
         stride = 1 if no_initial_downscaling else 2
         self.first_bottom_up = nn.Sequential(
-            nn.Conv2d(color_ch, n_filters, 5, padding=2, stride=stride),
-            nonlin(),
+            # nn.Conv2d(color_ch, n_filters, 5, padding=2, stride=stride),
+            # nonlin(),
             BottomUpDeterministicResBlock(
                 c_in=n_filters,
                 c_out=n_filters,
@@ -166,41 +168,46 @@ class LadderVAE(nn.Module):
                 ))
         
         # optional additional upsampling topdown layer
-        if final_upsamp:
-            self.upsamp_topdown = TopDownDeterministicResBlock(
-                    c_in=n_filters,
-                    c_out=n_filters,
-                    nonlin=nonlin,
-                    batchnorm=batchnorm,
-                    dropout=dropout,
-                    res_block_type=res_block_type,
-                    gated=gated,
-                    upsample=True,
-                )
-            # self.upsamp_topdown = TopDownLayer(
-            #     z_dim=z_dims[-1],
-            #     n_res_blocks=blocks_per_layer,
-            #     n_filters=n_filters,
-            #     is_top_layer=False,
-            #     downsampling_steps=self.downsample[i],
-            #     nonlin=nonlin,
-            #     merge_type=merge_type,
-            #     batchnorm=batchnorm,
-            #     dropout=dropout,
-            #     stochastic_skip=False,
-            #     learn_top_prior=learn_top_prior,
-            #     top_prior_param_shape=self.get_top_prior_param_shape(),
-            #     res_block_type=res_block_type,
-            #     gated=gated,
-            #     analytical_kl=analytical_kl,
-            # )
-        else:
-            self.upsamp_topdown = None
+        # if final_upsamp:
+        #     self.upsamp_topdown = TopDownDeterministicResBlock(
+        #             c_in=n_filters,
+        #             c_out=n_filters,
+        #             nonlin=nonlin,
+        #             batchnorm=batchnorm,
+        #             dropout=dropout,
+        #             res_block_type=res_block_type,
+        #             gated=gated,
+        #             upsample=True,
+        #         )
+        #     # self.upsamp_topdown = TopDownLayer(
+        #     #     z_dim=z_dims[-1],
+        #     #     n_res_blocks=blocks_per_layer,
+        #     #     n_filters=n_filters,
+        #     #     is_top_layer=False,
+        #     #     downsampling_steps=self.downsample[i],
+        #     #     nonlin=nonlin,
+        #     #     merge_type=merge_type,
+        #     #     batchnorm=batchnorm,
+        #     #     dropout=dropout,
+        #     #     stochastic_skip=False,
+        #     #     learn_top_prior=learn_top_prior,
+        #     #     top_prior_param_shape=self.get_top_prior_param_shape(),
+        #     #     res_block_type=res_block_type,
+        #     #     gated=gated,
+        #     #     analytical_kl=analytical_kl,
+        #     # )
+        # else:
+        #     self.upsamp_topdown = None
+
 
         # Final top-down layer
         modules = list()
         if not no_initial_downscaling:
             modules.append(Interpolate(scale=2))
+        # if final_upsamp:
+        #     modules.append(nn.Conv2d(n_filters,4*n_filters,kernel_size=3,padding=1))
+        #     modules.append(nn.PixelShuffle(2))
+        #     modules.append(nn.Conv2d(n_filters,n_filters,kernel_size=3,padding=1))
         for i in range(blocks_per_layer):
             modules.append(
                 TopDownDeterministicResBlock(
@@ -211,8 +218,10 @@ class LadderVAE(nn.Module):
                     dropout=dropout,
                     res_block_type=res_block_type,
                     gated=gated,
+                    upsample=False,
                 ))
         self.final_top_down = nn.Sequential(*modules)
+
 
         # Define likelihood
         if self.likelihood_form == 'gaussian':
@@ -248,19 +257,23 @@ class LadderVAE(nn.Module):
 
         # Top-down inference/generation
         out, td_data = self.topdown_pass(bu_values)
-
-        if self.upsamp_topdown is not None:
-            out = self.upsamp_topdown(self.pad_input(out))
-            out = crop_img_tensor(out[0], torch.Size([dim * 2 for dim in img_size]))
-        else:
-            # Restore original image size
-            out = crop_img_tensor(out, img_size)
+        # out = crop_img_tensor(out, torch.Size([dim * 2 for dim in img_size]))
+        # if self.upsampPixelShuffle is not None:
+        #     out = self.upsampPixelShuffle(out)
+        #     out = crop_img_tensor(out, torch.Size([dim * 2 for dim in img_size]))
+        # else:
+        #     # Restore original image size
+        out = crop_img_tensor(out, img_size)
         
         # Log likelihood and other info (per data point)
-        if self.mode_pred is False and y is not None:
-            ll, likelihood_info = self.likelihood(out,y)
+        if self.mode_pred:
+            target = None
+        elif y is not None:
+            target = y
         else:
-            ll, likelihood_info = self.likelihood(out, x)
+            target = x
+
+        ll, likelihood_info = self.likelihood(out, target)
 
         if self.mode_pred is False:
             # kl[i] for each i has length batch_size

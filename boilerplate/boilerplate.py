@@ -27,7 +27,7 @@ def _dowsamp_data(data,downsamp_factor):
         x0 = np.random.randint(0,downsamp_factor)
         y0 = np.random.randint(0,downsamp_factor)
         im2 = im[y0::downsamp_factor,x0::downsamp_factor]
-        # im2 = cv2.resize(im2, None, fx=downsamp_factor, fy=downsamp_factor, interpolation= cv2.INTER_NEAREST)
+        # im2 = cv2.resize(im2, None, fx=downsamp_factor, fy=downsamp_factor, interpolation=cv2.INTER_CUBIC)
         dwnsampData.append(im2)
 
     return np.stack(dwnsampData)

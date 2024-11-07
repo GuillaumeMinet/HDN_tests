@@ -43,7 +43,7 @@ use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 print(device)
 
-data_path = Path(r"E:\dl_monalisa\Data\Mito_live_2Dtimelapses\dump\2024-10-11")
+data_path = Path(r"\\storage3.ad.scilifelab.se\testalab\Guillaume\data_from_ao")
 crop_size = 400
 # im_size = 1400
 # start = im_size//2-crop_size//2
@@ -51,15 +51,15 @@ crop_size = 400
 
 
 # model
-model = torch.load("MyScripts/Trained_model/model/Mito_live_2Dtimelapses_GMMmito_clip-5_5Lat_6Blocks_betaKL0.022_best_vae.net")
+model = torch.load("MyScripts/Trained_model/model/Vim_fixed_mltplSNR_30nm_Noise1234_GMM1234boostrapped_Clip-3_5Lat_6Blocks_betaKL0.03_SupervisedAVG_NoAugment_best_vae.net")
 model.mode_pred=True
 model.eval()
 
 # saving
 save_inp = False
-suffix = "Mito0025"
+suffix = "denoiseHDN"
 overwrite = False
-save_path = data_path / "denoised_HDN"
+save_path = data_path
 # save_path = data_path
 if os.path.exists(save_path):
     if overwrite:
@@ -74,11 +74,11 @@ else:
 
 # prediction
 
-num_samples = 10
+num_samples = 30
 save_samples = False
 
 # list_files = os.listdir(data_path)
-list_files = ["c2_crop1.tif"]
+list_files = ["crop_both.tif"]
 print(list_files)
 
 for k in range(len(list_files)):
@@ -91,7 +91,7 @@ for k in range(len(list_files)):
     stack = imread(data_path / name_file)
     # stack = crop_center(stack,crop_size)
     print(stack.shape)
-    stack[stack<-5]=-5
+    stack[stack<-3]=0
     # stack = (stack-(19.723637) ) / (36.286743)
     # stack = (stack-(26.494621) ) / (55.239285)
     # predict
