@@ -36,7 +36,7 @@ class LadderVAE(nn.Module):
                  mode_pred=False,
                  use_uncond_mode_at=[],
                  initial_upsamp = False,
-                 final_upsamp = False):
+                 ):
         super().__init__()
         self.color_ch = color_ch
         self.z_dims = z_dims
@@ -58,7 +58,6 @@ class LadderVAE(nn.Module):
         self.use_uncond_mode_at=use_uncond_mode_at
         self._global_step = 0
         self.initial_upsamp = initial_upsamp
-        self.final_upsamp = final_upsamp
         
         assert(self.data_std is not None)
         assert(self.data_mean is not None)
@@ -97,13 +96,14 @@ class LadderVAE(nn.Module):
         else:
             self.upsamp_layer = None
 
-        # First bottom-up layer: change num channels + downsample by factor 2
-        # unless we want to prevent this
+        # First bottom-up layer: change num channels only if no initial upsampling layer
+        # + downsample by factor 2 unless we want to prevent this
         stride = 1 if no_initial_downscaling else 2
-        self.first_bottom_up = nn.Sequential(
-            # nn.Conv2d(color_ch, n_filters, 5, padding=2, stride=stride),
-            # nonlin(),
-            BottomUpDeterministicResBlock(
+        modules = list()
+        if not self.initial_upsamp:
+            modules.append(nn.Conv2d(color_ch, n_filters, 5, padding=2, stride=stride)),
+            modules.append(nonlin())
+        modules.append(BottomUpDeterministicResBlock(
                 c_in=n_filters,
                 c_out=n_filters,
                 nonlin=nonlin,
@@ -111,6 +111,7 @@ class LadderVAE(nn.Module):
                 dropout=dropout,
                 res_block_type=res_block_type,
             ))
+        self.first_bottom_up = nn.Sequential(*modules)
 
         # Init lists of layers
         self.top_down_layers = nn.ModuleList([])
@@ -172,10 +173,6 @@ class LadderVAE(nn.Module):
         modules = list()
         if not no_initial_downscaling:
             modules.append(Interpolate(scale=2))
-
-        # upsamp set to True if final upsampling step
-        upsamp = True if self.final_upsamp else False
-
         for i in range(blocks_per_layer):
             modules.append(
                 TopDownDeterministicResBlock(
@@ -186,7 +183,7 @@ class LadderVAE(nn.Module):
                     dropout=dropout,
                     res_block_type=res_block_type,
                     gated=gated,
-                    upsample=upsamp,
+                    upsample=False,
                 ))
         self.final_top_down = nn.Sequential(*modules)
 
@@ -226,11 +223,8 @@ class LadderVAE(nn.Module):
         # Top-down inference/generation
         out, td_data = self.topdown_pass(bu_values)
 
-        # Restore original image size (or twice original size if upsamp done last)
-        if self.final_upsamp:
-            out = crop_img_tensor(out, torch.Size([dim * 2 for dim in img_size]))
-        else:
-            out = crop_img_tensor(out, img_size)
+        # Restore original image size
+        out = crop_img_tensor(out, img_size)
         
         # Log likelihood and other info (per data point)
         if self.mode_pred:
