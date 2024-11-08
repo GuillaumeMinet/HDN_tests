@@ -20,44 +20,30 @@ from models.lvae import LadderVAE
 import lib.utils as utils
 import cv2
 
-def _dowsamp_data(data,downsamp_factor):
+def _dowsamp_data(data,downsamp_factor,reupsamp):
+    """
+    Downsamples of a factor `downsamp_factor`, with random pixel selection.
+    If `reupsamp` is True, output is reupsampled with cv2 nearest neighbor.
+    """
     assert isinstance(downsamp_factor, int) and downsamp_factor > 1
     dwnsampData = []
     for im in data:
         x0 = np.random.randint(0,downsamp_factor)
         y0 = np.random.randint(0,downsamp_factor)
         im2 = im[y0::downsamp_factor,x0::downsamp_factor]
-        # im2 = cv2.resize(im2, None, fx=downsamp_factor, fy=downsamp_factor, interpolation=cv2.INTER_CUBIC)
+        if reupsamp:
+            im2 = cv2.resize(im2, None, fx=downsamp_factor, fy=downsamp_factor, interpolation=cv2.INTER_NEAREST)
         dwnsampData.append(im2)
 
     return np.stack(dwnsampData)
 
 
-def _make_datamanager_supervised(train_images, train_images_gt, val_images, val_images_gt,
-                      test_images, test_images_gt, batch_size, test_batch_size,upsamp=1):
+def _make_datamanager_supervised(train_images, train_images_gt, val_images, val_images_gt,batch_size, test_batch_size,upsamp=1,upsamp_beforeNN=False):
     
-    """Create data loaders for training, validation and test sets during training.
-    The test set will simply be used for plotting and comparing generated images 
-    from the learned denoised posterior during training phase. 
-    No evaluation will be done on the test set during training. 
-    Args:
-        train_images (np array): A 3d array
-        val_images (np array): A 3d array
-        test_images (np array): A 3d array
-        batch_size (int): The batch size for training and validation steps
-        test_batch_size (int): The batch size for test steps
-    Returns:
-        train_loader: Training data loader
-        val_loader: Validation data loader
-        test_loader: Test data loader
-        data_mean: mean of train data and validation data combined
-        data_std: std of train data and validation data combined
     """
-    
-    # np.random.shuffle(train_images)
-    train_images = train_images
-    # np.random.shuffle(val_images)
-    val_images = val_images
+    Adapted from "_make_datamanager", for paired datset.
+    If arg:`upsamp`>1, input is downsampled by a the given factor.
+    """
     
     combined_data = np.concatenate((train_images, val_images), axis=0)
     combined_data_gt = np.concatenate((train_images_gt, val_images_gt), axis=0)
@@ -65,43 +51,33 @@ def _make_datamanager_supervised(train_images, train_images_gt, val_images, val_
     data_std = np.std(combined_data)
     data_mean_gt = np.mean(combined_data_gt)
     data_std_gt = np.std(combined_data_gt)
+
+    # train set
     train_images = (train_images-data_mean)/data_std
     train_images_gt = (train_images_gt-data_mean_gt)/data_std_gt
     if upsamp > 1:
-        train_images = _dowsamp_data(train_images,upsamp)
-        # train_images_gt = _dowsamp_data(train_images_gt,upsamp)
+        train_images = _dowsamp_data(train_images,upsamp,upsamp_beforeNN)
     train_images = torch.from_numpy(train_images)
     train_images_gt = torch.from_numpy(train_images_gt)
-    #train_labels = torch.zeros(len(train_images),).fill_(float('nan'))
 
     train_set = TensorDataset(train_images, train_images_gt)
-    
+
+    # validation set
     val_images = (val_images-data_mean)/data_std
     val_images_gt = (val_images_gt-data_mean_gt)/data_std_gt
     if upsamp > 1:
-        val_images = _dowsamp_data(val_images,upsamp)
-        # val_images_gt = _dowsamp_data(val_images_gt,upsamp)
+        val_images = _dowsamp_data(val_images,upsamp,upsamp_beforeNN)
     val_images = torch.from_numpy(val_images)
     val_images_gt = torch.from_numpy(val_images_gt)
-    # val_labels = torch.zeros(len(val_images),).fill_(float('nan'))
     val_set = TensorDataset(val_images, val_images_gt)
-    
-    np.random.shuffle(test_images)
-    test_images = torch.from_numpy(test_images)
-    test_images_gt = torch.from_numpy(test_images_gt)
-    test_images = (test_images-data_mean)/data_std
-    test_images_gt = (test_images-data_mean_gt)/data_std_gt
-    # test_labels = torch.zeros(len(test_images),).fill_(float('nan'))
-    test_set = TensorDataset(test_images, test_images_gt)
     
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=False)
     val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_set, batch_size=test_batch_size, shuffle=False)
     
-    return train_loader, val_loader, test_loader, data_mean_gt, data_std_gt
+    return train_loader, val_loader, data_mean_gt, data_std_gt
 
 
-def _make_datamanager(train_images, val_images, test_images, batch_size, test_batch_size,upsamp=1):
+def _make_datamanager(train_images, val_images, test_images, batch_size, test_batch_size):
     
     """Create data loaders for training, validation and test sets during training.
     The test set will simply be used for plotting and comparing generated images 
@@ -131,16 +107,11 @@ def _make_datamanager(train_images, val_images, test_images, batch_size, test_ba
     data_std = np.std(combined_data)
     train_images = (train_images-data_mean)/data_std
 
-    if upsamp > 1:
-        train_images = _dowsamp_data(train_images,upsamp)
-
     train_images = torch.from_numpy(train_images)
     train_labels = torch.zeros(len(train_images),).fill_(float('nan'))
     train_set = TensorDataset(train_images, train_labels)
     
     val_images = (val_images-data_mean)/data_std
-    if upsamp > 1:
-        val_images = _dowsamp_data(val_images,upsamp)
         
     val_images = torch.from_numpy(val_images)
     val_labels = torch.zeros(len(val_images),).fill_(float('nan'))

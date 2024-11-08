@@ -23,7 +23,7 @@ from models.lvae import LadderVAE
 import lib.utils as utils
 
 
-def train_network(model, lr, max_epochs,steps_per_epoch,train_loader, val_loader, test_loader, 
+def train_network(model, lr, max_epochs,steps_per_epoch,train_loader, val_loader, 
                   virtual_batch, gaussian_noise_std, model_name, 
                   test_log_every=1000, directory_path="./",
                   val_loss_patience=100, nrows=4, max_grad_norm=None,beta=1):
