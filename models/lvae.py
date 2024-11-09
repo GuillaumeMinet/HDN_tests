@@ -186,8 +186,22 @@ class LadderVAE(nn.Module):
                     upsample=False,
                 ))
         self.final_top_down = nn.Sequential(*modules)
+        
+        self.final_upsample_block = nn.Sequential(
+                nn.ConvTranspose2d(in_channels=n_filters,out_channels=n_filters,kernel_size=4,padding=1,stride=2),
+                nonlin(),
+                nn.Conv2d(in_channels=n_filters,out_channels=2*n_filters,kernel_size=3,padding=1),
+                nonlin(),
+                nn.Conv2d(in_channels=2*n_filters,out_channels=n_filters,kernel_size=3,padding=1),
+                nonlin())
 
-
+        self.conv_ch_up = nn.Sequential(
+            nn.Conv2d(in_channels=1,out_channels=n_filters,kernel_size=3,padding=1),
+            nonlin(),
+            nn.Conv2d(in_channels=n_filters,out_channels=n_filters,kernel_size=3,padding=1),
+            nonlin()
+        )
+        
         # Define likelihood
         if self.likelihood_form == 'gaussian':
             self.likelihood = GaussianLikelihood(n_filters, color_ch)
@@ -208,6 +222,7 @@ class LadderVAE(nn.Module):
         return self._global_step
 
     def forward(self, x, y=None):
+        print('x size:', x.size())
 
         if self.initial_upsamp:
             x = self.upsamp_layer(x)
@@ -221,7 +236,7 @@ class LadderVAE(nn.Module):
         bu_values = self.bottomup_pass(x_pad)
 
         # Top-down inference/generation
-        out, td_data = self.topdown_pass(bu_values)
+        out, td_data = self.topdown_pass(bu_values, input=x)
 
         # Restore original image size
         out = crop_img_tensor(out, img_size)
@@ -233,6 +248,8 @@ class LadderVAE(nn.Module):
             target = y
         else:
             target = x
+           
+        out = self.final_upsample_block(out) 
 
         ll, likelihood_info = self.likelihood(out, target)
 
@@ -287,7 +304,8 @@ class LadderVAE(nn.Module):
                      n_img_prior=None,
                      mode_layers=None,
                      constant_layers=None,
-                     forced_latent=None):
+                     forced_latent=None,
+                     input = None):
 
         # Default: no layer is sampled from the distribution's mode
         if mode_layers is None:
@@ -364,7 +382,10 @@ class LadderVAE(nn.Module):
             else:
                 logprob_p = None
         # Final top-down layer
-        out = self.final_top_down(out)
+
+        if input is not None:
+            input = self.conv_ch_up(input)
+        out = self.final_top_down(out + input)
 
         data = {
             'z': z,  # list of tensors with shape (batch, ch[i], h[i], w[i])
