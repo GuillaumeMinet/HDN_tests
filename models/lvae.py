@@ -222,7 +222,6 @@ class LadderVAE(nn.Module):
         return self._global_step
 
     def forward(self, x, y=None):
-        print('x size:', x.size())
 
         if self.initial_upsamp:
             x = self.upsamp_layer(x)
