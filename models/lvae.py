@@ -24,7 +24,7 @@ class LadderVAE(nn.Module):
                  merge_type='residual',
                  batchnorm=True,
                  stochastic_skip=True,
-                 n_filters=128,
+                 n_filters=64,
                  dropout=0.2,
                  free_bits=0.0,
                  learn_top_prior=True,
@@ -101,8 +101,8 @@ class LadderVAE(nn.Module):
         # unless we want to prevent this
         stride = 1 if no_initial_downscaling else 2
         self.first_bottom_up = nn.Sequential(
-            # nn.Conv2d(color_ch, n_filters, 5, padding=2, stride=stride),
-            # nonlin(),
+            nn.Conv2d(color_ch, n_filters, 5, padding=2, stride=stride),
+            nonlin(),
             BottomUpDeterministicResBlock(
                 c_in=n_filters,
                 c_out=n_filters,
@@ -251,7 +251,8 @@ class LadderVAE(nn.Module):
 
         # Pad input to make everything easier with conv strides
         x_pad = self.pad_input(x)
-
+        # print(x.shape)
+        # print(x_pad.shape)
         # Bottom-up inference: return list of length n_layers (bottom to top)
         bu_values = self.bottomup_pass(x_pad)
 

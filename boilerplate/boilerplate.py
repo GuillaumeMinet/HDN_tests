@@ -33,8 +33,7 @@ def _dowsamp_data(data,downsamp_factor):
     return np.stack(dwnsampData)
 
 
-def _make_datamanager_supervised(train_images, train_images_gt, val_images, val_images_gt,
-                      test_images, test_images_gt, batch_size, test_batch_size,upsamp=1):
+def _make_datamanager_supervised(train_images, train_images_gt, val_images, val_images_gt,batch_size,upsamp=1):
     
     """Create data loaders for training, validation and test sets during training.
     The test set will simply be used for plotting and comparing generated images 
@@ -86,19 +85,19 @@ def _make_datamanager_supervised(train_images, train_images_gt, val_images, val_
     # val_labels = torch.zeros(len(val_images),).fill_(float('nan'))
     val_set = TensorDataset(val_images, val_images_gt)
     
-    np.random.shuffle(test_images)
-    test_images = torch.from_numpy(test_images)
-    test_images_gt = torch.from_numpy(test_images_gt)
-    test_images = (test_images-data_mean)/data_std
-    test_images_gt = (test_images-data_mean_gt)/data_std_gt
+    # np.random.shuffle(test_images)
+    # test_images = torch.from_numpy(test_images)
+    # test_images_gt = torch.from_numpy(test_images_gt)
+    # test_images = (test_images-data_mean)/data_std
+    # test_images_gt = (test_images-data_mean_gt)/data_std_gt
     # test_labels = torch.zeros(len(test_images),).fill_(float('nan'))
-    test_set = TensorDataset(test_images, test_images_gt)
+    # test_set = TensorDataset(test_images, test_images_gt)
     
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=False)
     val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_set, batch_size=test_batch_size, shuffle=False)
+    # test_loader = DataLoader(test_set, batch_size=test_batch_size, shuffle=False)
     
-    return train_loader, val_loader, test_loader, data_mean_gt, data_std_gt
+    return train_loader, val_loader, data_mean_gt, data_std_gt
 
 
 def _make_datamanager(train_images, val_images, test_images, batch_size, test_batch_size,upsamp=1):
