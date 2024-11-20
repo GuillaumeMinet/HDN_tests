@@ -100,7 +100,7 @@ def _make_datamanager_supervised(train_images, train_images_gt, val_images, val_
     return train_loader, val_loader, data_mean_gt, data_std_gt
 
 
-def _make_datamanager(train_images, val_images, test_images, batch_size, test_batch_size,upsamp=1):
+def _make_datamanager(train_images, val_images, batch_size,upsamp=1):
     
     """Create data loaders for training, validation and test sets during training.
     The test set will simply be used for plotting and comparing generated images 
@@ -145,17 +145,17 @@ def _make_datamanager(train_images, val_images, test_images, batch_size, test_ba
     val_labels = torch.zeros(len(val_images),).fill_(float('nan'))
     val_set = TensorDataset(val_images, val_labels)
     
-    np.random.shuffle(test_images)
-    test_images = torch.from_numpy(test_images)
-    test_images = (test_images-data_mean)/data_std
-    test_labels = torch.zeros(len(test_images),).fill_(float('nan'))
-    test_set = TensorDataset(test_images, test_labels)
+    # np.random.shuffle(test_images)
+    # test_images = torch.from_numpy(test_images)
+    # test_images = (test_images-data_mean)/data_std
+    # test_labels = torch.zeros(len(test_images),).fill_(float('nan'))
+    # test_set = TensorDataset(test_images, test_labels)
     
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_set, batch_size=test_batch_size, shuffle=True)
+    # test_loader = DataLoader(test_set, batch_size=test_batch_size, shuffle=True)
     
-    return train_loader, val_loader, test_loader, data_mean, data_std
+    return train_loader, val_loader, data_mean, data_std
     
 def _make_optimizer_and_scheduler(model, lr, weight_decay) -> Optimizer:
     """
