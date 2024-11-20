@@ -24,7 +24,7 @@ class LadderVAE(nn.Module):
                  merge_type='residual',
                  batchnorm=True,
                  stochastic_skip=True,
-                 n_filters=128,
+                 n_filters=64,
                  dropout=0.2,
                  free_bits=0.0,
                  learn_top_prior=True,
@@ -202,12 +202,18 @@ class LadderVAE(nn.Module):
             nonlin()
         )
         
+        self.final_skip_conv = nn.Sequential(
+            nn.Conv2d(in_channels=n_filters*2,out_channels=n_filters,kernel_size=3,padding=1),
+            nonlin(),
+            nn.Conv2d(in_channels=n_filters,out_channels=n_filters,kernel_size=3,padding=1),
+            nonlin()
+        )
+        
         # Define likelihood
         if self.likelihood_form == 'gaussian':
             self.likelihood = GaussianLikelihood(n_filters, color_ch)
         elif self.likelihood_form == 'noise_model':
-            self.likelihood = NoiseModelLikelihood(n_filters, color_ch, data_mean, 
-                                                   data_std, noiseModel)
+            self.likelihood = NoiseModelLikelihood(n_filters, color_ch, data_mean, data_std, noiseModel)
         else:
             msg = "Unrecognized likelihood '{}'".format(self.likelihood_form)
             raise RuntimeError(msg)
@@ -384,7 +390,9 @@ class LadderVAE(nn.Module):
 
         if input is not None:
             input = self.conv_ch_up(input)
-        out = self.final_top_down(out + input)
+            concat_input = torch.cat([input, out], dim=1)
+            out = self.final_skip_conv(concat_input)
+        out = self.final_top_down(out)
 
         data = {
             'z': z,  # list of tensors with shape (batch, ch[i], h[i], w[i])

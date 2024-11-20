@@ -130,12 +130,11 @@ def train_network(model, lr, max_epochs,steps_per_epoch,train_loader, val_loader
                     batch_y = None
                 else:
                     batch_y = virtual_batches_y [i]
-                outputs = boilerplate.forward_pass(batch_x, batch_y, device, model, 
-                                                                gaussian_noise_std)
+                outputs = boilerplate.forward_pass(batch_x, batch_y, device, model, gaussian_noise_std)
 
                 recons_loss = outputs['recons_loss']
                 kl_loss = outputs['kl_loss']
-                loss = recons_loss + beta*kl_loss
+                loss = (2.0*recons_loss) + beta*kl_loss
                 loss.backward()
 
                 if max_grad_norm is not None:
