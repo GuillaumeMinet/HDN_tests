@@ -261,8 +261,9 @@ class LadderVAE(nn.Module):
         if self.mode_pred is False:
             # kl[i] for each i has length batch_size
             # resulting kl shape: (batch_size, layers)
-            kl = torch.cat([kl_layer.unsqueeze(1) for kl_layer in td_data['kl']],
-                           dim=1)
+            #print the shape of kl for each layer
+            print([kl_layer.shape for kl_layer in td_data['kl']])
+            kl = torch.cat([kl_layer.unsqueeze(1) / (kl_layer.size(1) * kl_layer.size(2)) for kl_layer in td_data['kl']], dim=1)
 
             kl_sep = kl.sum(1)
             kl_avg_layerwise = kl.mean(0)
